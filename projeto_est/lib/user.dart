@@ -1,9 +1,15 @@
-class Contact {
-  late final String name;
-  late final String phone;
-  late final String email;
-  final String address;
+class User {
+  String nome;
+  String telefone;
+  String email;
   DateTime createdDate;
+  List<String> endereco;
 
-  Contact({required this.name, required this.phone, required this.email, required this.address, required this.createdDate,});
+  User({
+    required this.nome,
+    required this.telefone,
+    required this.email,
+    required this.createdDate,
+    required this.endereco,
+  });
 }

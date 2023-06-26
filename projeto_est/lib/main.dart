@@ -10,12 +10,12 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Lista de Contatos',
       theme: ThemeData(
         primarySwatch: Colors.brown,
       ),
       home: ContactListScreen(),
-      );
-
+    );
   }
 }
 
@@ -25,35 +25,18 @@ class ContactListScreen extends StatefulWidget {
 }
 
 class _ContactListScreenState extends State<ContactListScreen> {
-  List<Contact> contacts = [];
-  List<Contact> favorites = [];
+  List<User> contacts = [];
+  List<User> favorites = [];
 
   @override
   void initState() {
     super.initState();
-    fetchContacts();
-  }
-
-  void fetchContacts() async {
-    final contactIds = ['123456', '654321', '987654'];
-
-    for (final id in contactIds) {
-      try {
-        final contact = await ViaCepService.fetchContactAddress(id);
-        setState(() {
-          contacts.add(contact);
-        });
-      } catch (e) {
-        print('Falha: $e');
-      }
-    }
-
-    sortContacts();
+    contacts = [];
   }
 
   void addContact() async {
-    final TextEditingController nameController = TextEditingController();
-    final TextEditingController phoneController = TextEditingController();
+    final TextEditingController nomeController = TextEditingController();
+    final TextEditingController telefoneController = TextEditingController();
     final TextEditingController emailController = TextEditingController();
     final TextEditingController cepController = TextEditingController();
 
@@ -63,19 +46,18 @@ class _ContactListScreenState extends State<ContactListScreen> {
         return AlertDialog(
           title: Text('Adicionar Contato'),
           content: Scrollbar(
-            thumbVisibility: true,
-            thickness: 2,
             child: SingleChildScrollView(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
-                    controller: nameController,
+                    controller: nomeController,
                     decoration: InputDecoration(
                       labelText: 'Nome',
                     ),
                   ),
                   TextField(
-                    controller: phoneController,
+                    controller: telefoneController,
                     decoration: InputDecoration(
                       labelText: 'Telefone',
                     ),
@@ -105,44 +87,28 @@ class _ContactListScreenState extends State<ContactListScreen> {
             ),
             TextButton(
               onPressed: () async {
-                if (nameController.text.isEmpty ||
-                    phoneController.text.isEmpty ||
-                    emailController.text.isEmpty ||
-                    cepController.text.isEmpty) {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: Text('Campos obrigatórios'),
-                        content: Text('Por favor, preencha todos os campos.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: Text('OK'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                } else {
-                  final contact =
-                      await ViaCepService.fetchContactAddress(cepController.text);
-                  setState(() {
-                    contacts.add(Contact(
-                      name: nameController.text,
-                      phone: phoneController.text,
+                final address = await ViaCepService.getAddress(cepController.text);
+
+                setState(() {
+                  contacts.add(
+                    User(
+                      nome: nomeController.text,
+                      telefone: telefoneController.text,
                       email: emailController.text,
-                      address: contact.address,
                       createdDate: DateTime.now(),
-                    ));
-                  });
-                  sortContacts();
-                  Navigator.of(context).pop();
-                }
+                      endereco: [
+                        address['logradouro'],
+                        address['bairro'],
+                        address['localidade'],
+                        address['uf']
+                      ],
+                    ),
+                  );
+                });
+
+                Navigator.of(context).pop();
               },
-              child: Text('Adicionar'),
+              child: Text('Salvar'),
             ),
           ],
         );
@@ -150,44 +116,38 @@ class _ContactListScreenState extends State<ContactListScreen> {
     );
   }
 
-  void editContact(Contact contact) async {
-    final TextEditingController nameController =
-        TextEditingController(text: contact.name);
-    final TextEditingController phoneController =
-        TextEditingController(text: contact.phone);
-    final TextEditingController emailController =
-        TextEditingController(text: contact.email);
+  void editContact(User contact) async {
+    final TextEditingController nomeController = TextEditingController(text: contact.nome);
+    final TextEditingController telefoneController = TextEditingController(text: contact.telefone);
+    final TextEditingController emailController = TextEditingController(text: contact.email);
 
     await showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Editar Contato'),
-          content: Scrollbar(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'Nome',
-                    ),
-                  ),
-                  TextField(
-                    controller: phoneController,
-                    decoration: InputDecoration(
-                      labelText: 'Telefone',
-                    ),
-                  ),
-                  TextField(
-                    controller: emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                    ),
-                  ),
-                ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nomeController,
+                decoration: InputDecoration(
+                  labelText: 'Nome',
+                ),
               ),
-            ),
+              TextField(
+                controller: telefoneController,
+                decoration: InputDecoration(
+                  labelText: 'Telefone',
+                ),
+              ),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                ),
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -199,10 +159,11 @@ class _ContactListScreenState extends State<ContactListScreen> {
             TextButton(
               onPressed: () {
                 setState(() {
-                  contact.name = nameController.text;
-                  contact.phone = phoneController.text;
+                  contact.nome = nomeController.text;
+                  contact.telefone = telefoneController.text;
                   contact.email = emailController.text;
                 });
+
                 Navigator.of(context).pop();
               },
               child: Text('Salvar'),
@@ -213,13 +174,13 @@ class _ContactListScreenState extends State<ContactListScreen> {
     );
   }
 
-  void deleteContact(Contact contact) {
+  void deleteContact(User contact) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Excluir Contato'),
-          content: Text('Deseja realmente excluir o contato?'),
+          content: Text('Deseja excluir o contato "${contact.nome}"?'),
           actions: [
             TextButton(
               onPressed: () {
@@ -233,6 +194,7 @@ class _ContactListScreenState extends State<ContactListScreen> {
                   contacts.remove(contact);
                   favorites.remove(contact);
                 });
+
                 Navigator.of(context).pop();
               },
               child: Text('Excluir'),
@@ -243,7 +205,7 @@ class _ContactListScreenState extends State<ContactListScreen> {
     );
   }
 
-  void toggleFavorite(Contact contact) {
+  void toggleFavorite(User contact) {
     setState(() {
       if (favorites.contains(contact)) {
         favorites.remove(contact);
@@ -253,17 +215,19 @@ class _ContactListScreenState extends State<ContactListScreen> {
     });
   }
 
-  void sortContacts() {
-    contacts.sort((a, b) => a.name.compareTo(b.name));
-  }
-
-  void navigateToProfile(Contact contact) {
-    Navigator.push(
+  void navigateToProfile(User contact) async {
+    final newAddresses = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProfileScreen(contact: contact),
       ),
     );
+
+    if (newAddresses != null) {
+      setState(() {
+        contact.endereco.addAll(newAddresses);
+      });
+    }
   }
 
   @override
@@ -293,13 +257,18 @@ class _ContactListScreenState extends State<ContactListScreen> {
                   final isFavorite = favorites.contains(contact);
 
                   return ListTile(
-                    title: Text(contact.name),
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.brown,
+                      child: Text(
+                        contact.nome.substring(0, 1),
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
+                    ),
+                    title: Text(contact.nome),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(contact.address),
-                        Text('Telefone: ${contact.phone}'),
-                        Text('Email: ${contact.email}'),
+                        Text('Telefone: ${contact.telefone}'),
                       ],
                     ),
                     trailing: Row(
@@ -332,34 +301,23 @@ class _ContactListScreenState extends State<ContactListScreen> {
                   final contact = favorites[index];
 
                   return ListTile(
-                    title: Text(contact.name),
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.brown,
+                      child: Text(
+                        contact.nome.substring(0, 1),
+                        style: TextStyle(fontSize: 18, color: Colors.white),
+                      ),
+                    ),
+                    title: Text(contact.nome),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(contact.address),
-                        Text('Telefone: ${contact.phone}'),
-                        Text('Email: ${contact.email}'),
+                        Text('Telefone: ${contact.telefone}'),
                       ],
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.edit),
-                          onPressed: () => editContact(contact),
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.favorite,
-                            color: Colors.red,
-                          ),
-                          onPressed: () => toggleFavorite(contact),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete),
-                          onPressed: () => deleteContact(contact),
-                        ),
-                      ],
+                    trailing: IconButton(
+                      icon: Icon(Icons.favorite, color: Colors.red),
+                      onPressed: () => toggleFavorite(contact),
                     ),
                     onTap: () => navigateToProfile(contact),
                   );
@@ -377,30 +335,104 @@ class _ContactListScreenState extends State<ContactListScreen> {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
-  final Contact contact;
+class ProfileScreen extends StatefulWidget {
+  final User contact;
 
-  const ProfileScreen({Key? key, required this.contact}) : super(key: key);
+  ProfileScreen({required this.contact});
+
+  @override
+  _ProfileScreenState createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  List<String> addedAddresses = [];
+
+  void addAddress(BuildContext context) async {
+    final TextEditingController addressController = TextEditingController();
+    final TextEditingController cepController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Adicionar Endereço'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: cepController,
+                decoration: InputDecoration(
+                  labelText: 'CEP',
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final address = await ViaCepService.getAddress(cepController.text);
+
+                  if (address != null) {
+                    setState(() {
+                      addedAddresses.add(address['logradouro']);
+                      addedAddresses.add(address['bairro']);
+                      addedAddresses.add(address['localidade']);
+                      addedAddresses.add(address['uf']);
+                    });
+                  }
+
+                  Navigator.of(context).pop();
+                },
+                child: Text('Adicionar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(contact.name),
+        title: Text(widget.contact.nome),
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Endereço: ${contact.address}'),
-            SizedBox(height: 16.0),
-            Text('Telefone: ${contact.phone}'),
-            SizedBox(height: 16.0),
-            Text('Email: ${contact.email}'),
-            SizedBox(height: 16.0),
-            Text('Data de inclusão: ${contact.createdDate}'),
-          ],
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Nome: ${widget.contact.nome}'),
+              Text('Telefone: ${widget.contact.telefone}'),
+              Text('Email: ${widget.contact.email}'),
+              Text('Data de inclusão: ${widget.contact.createdDate}'),
+              SizedBox(height: 16.0),
+              Text('Endereços:', style: TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold)),
+              SizedBox(height: 16.0),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ...widget.contact.endereco.map((address) {
+                    return Text(address);
+                  }),
+                  ...addedAddresses.map((address) {
+                    return Text(address);
+                  }),
+                ],
+              ),
+              SizedBox(height: 16.0),
+              ElevatedButton(
+                onPressed: () => addAddress(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add),
+                    SizedBox(width: 4.0),
+                    Text('Adicionar Novo Endereço'),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
